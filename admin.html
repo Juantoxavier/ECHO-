@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"> <!-- Removed class="dark" to default to light mode -->
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,8 +24,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
 
     <style>
         body { animation: bodyFadeIn 0.5s ease forwards; }
@@ -94,6 +97,9 @@
         <span id="toast-message" class="font-semibold text-sm tracking-wide">Done</span>
     </div>
 
+    <!-- Datalist to hold unique existing team names for easy entry -->
+    <datalist id="existing-teams"></datalist>
+
     <!-- Modals & Panels -->
     <div id="delete-modal" class="hidden fixed inset-0 bg-black/60 z-[100] flex items-center justify-center px-4 modal-backdrop">
         <div class="bg-white dark:bg-brand-card p-8 rounded-2xl shadow-2xl max-w-sm w-full border border-gray-200 dark:border-gray-700">
@@ -117,6 +123,7 @@
 
     <!-- Edit Event Modal -->
     <div id="edit-event-modal" class="hidden fixed inset-0 bg-black/60 z-[150] flex items-center justify-center px-4 modal-backdrop">
+        <!-- Event Edit Form (Same as before) -->
         <div class="bg-white dark:bg-brand-card p-6 rounded-2xl shadow-2xl max-w-lg w-full border border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between mb-5">
                 <h3 class="text-xl font-bold">Edit Event</h3>
@@ -148,13 +155,29 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Member Type</label>
-                        <select id="edit-m-type" class="admin-input"><option value="student">Student / Exec</option><option value="faculty">Faculty Mentor</option></select>
+                        <select id="edit-m-type" class="admin-input" onchange="toggleEditTeamInput()"><option value="student">Student / Exec</option><option value="faculty">Faculty Mentor</option></select>
                     </div>
                     <div>
                         <label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Priority (Sort Order)</label>
                         <input type="number" id="edit-m-priority" class="admin-input" placeholder="e.g. 1">
                     </div>
                 </div>
+
+                <!-- Display Format logic for Edit -->
+                <div class="grid grid-cols-2 gap-4" id="wrap-edit-display-format">
+                    <div>
+                        <label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Display Format</label>
+                        <select id="edit-m-display" class="admin-input" onchange="toggleEditTeamInput()">
+                            <option value="individual">Individual Profile</option>
+                            <option value="team">Grouped in a Team</option>
+                        </select>
+                    </div>
+                    <div id="wrap-edit-team-name" class="hidden">
+                        <label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Team Name <span class="text-red-500">*</span></label>
+                        <input type="text" id="edit-m-team-name" class="admin-input" list="existing-teams" placeholder="e.g. Web Team">
+                    </div>
+                </div>
+
                 <div><label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Full Name <span class="text-red-500">*</span></label><input type="text" id="edit-m-name" class="admin-input"></div>
                 <div><label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Role <span class="text-red-500">*</span></label><input type="text" id="edit-m-role" class="admin-input"></div>
                 <div><label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Photo URL <span class="text-red-500">*</span></label><input type="url" id="edit-m-image" class="admin-input"></div>
@@ -182,17 +205,16 @@
     <div id="login-screen" class="flex items-center justify-center min-h-screen px-4 py-10">
         <div id="login-card" class="w-full max-w-md bg-white dark:bg-brand-card rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 p-8">
             <div class="flex flex-col items-center mb-8">
-                <!-- LOGO BG changed to black -->
                 <div class="w-16 h-16 bg-black rounded-2xl flex items-center justify-center shadow-lg mb-4 overflow-hidden">
                     <img src="https://lh3.googleusercontent.com/d/1aFFlIwdpDMN-gA4J1w1QKDNFZ_AX4QRa" class="w-full h-full object-contain p-1">
                 </div>
                 <h1 class="text-2xl font-extrabold">ECHO Admin</h1>
             </div>
             <div id="login-error" class="hidden mb-4 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-xl text-red-600 dark:text-red-400 text-sm font-medium"><i class="fas fa-times-circle mr-2"></i><span id="login-error-text">Invalid credentials.</span></div>
-            <div class="mb-4"><label class="block text-sm font-semibold mb-1.5 text-gray-700 dark:text-gray-300">Username</label><input type="text" id="login-username" class="admin-input" onkeydown="if(event.key==='Enter') attemptLogin()"></div>
+            <div class="mb-4"><label class="block text-sm font-semibold mb-1.5 text-gray-700 dark:text-gray-300">Email</label><input type="text" id="login-username" class="admin-input" onkeydown="if(event.key==='Enter') attemptLogin()"></div>
             <div class="mb-6 relative"><label class="block text-sm font-semibold mb-1.5 text-gray-700 dark:text-gray-300">Password</label><input type="password" id="login-password" class="admin-input pr-12" onkeydown="if(event.key==='Enter') attemptLogin()"><button type="button" onclick="togglePasswordVisibility()" class="absolute right-3 top-[2.35rem] text-gray-400 hover:text-gray-600"><i id="pw-eye-icon" class="fas fa-eye text-sm"></i></button></div>
             <button onclick="attemptLogin()" id="login-btn" class="w-full bg-brand-orange hover:bg-yellow-500 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"><i class="fas fa-sign-in-alt"></i> Sign In</button>
-           <!-- <div class="text-center mt-5"><a href="index.html" class="text-sm text-gray-400 hover:text-brand-orange"><i class="fas fa-arrow-left mr-1"></i> Back to main website</a></div> -->
+           <!--<div class="text-center mt-5"><a href="index.html" class="text-sm text-gray-400 hover:text-brand-orange"><i class="fas fa-arrow-left mr-1"></i> Back to main website</a></div> -->
         </div>
     </div>
 
@@ -200,7 +222,6 @@
     <div id="admin-dashboard" class="hidden min-h-screen flex flex-col">
         <header class="bg-white dark:bg-brand-card border-b border-gray-200 dark:border-gray-800 px-6 py-4 flex items-center justify-between sticky top-0 z-40 shadow-sm">
             <div class="flex items-center gap-3">
-                <!-- LOGO BG changed to black -->
                 <div class="w-9 h-9 bg-black rounded-xl flex items-center justify-center shadow-md overflow-hidden">
                     <img src="https://lh3.googleusercontent.com/d/1aFFlIwdpDMN-gA4J1w1QKDNFZ_AX4QRa" class="w-full h-full object-contain p-0.5">
                 </div>
@@ -247,13 +268,28 @@
                         </div>
                         <form id="form-members" onsubmit="handleSubmit(event, 'members')" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <input type="hidden" id="m-type" value="student">
+                            
+                            <!-- Display Format (Only for Students/Execs) -->
+                            <div id="wrap-display-format">
+                                <label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Display Format</label>
+                                <select id="m-display" class="admin-input" onchange="toggleTeamInput()">
+                                    <option value="individual">Individual Profile</option>
+                                    <option value="team">Grouped in a Team</option>
+                                </select>
+                            </div>
+                            <div id="wrap-team-name" class="hidden">
+                                <label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Team Name *</label>
+                                <input type="text" id="m-team-name" class="admin-input" list="existing-teams" placeholder="e.g. Web Team">
+                                <p class="text-[10px] text-gray-400 mt-1">Select from list or type a new one.</p>
+                            </div>
+
                             <div><label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Full Name *</label><input type="text" id="m-name" required class="admin-input"></div>
                             <div>
                                 <label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Priority (Sort Order)</label>
                                 <input type="number" id="m-priority" value="10" class="admin-input" placeholder="e.g. 1 for Chairman">
                                 <p class="text-[10px] text-gray-400 mt-1">Lower numbers appear first.</p>
                             </div>
-                            <div class="sm:col-span-2"><label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Role *</label><input type="text" id="m-role" required class="admin-input"></div>
+                            <div class="sm:col-span-2"><label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Role *</label><input type="text" id="m-role" required class="admin-input" placeholder="e.g. Secretary, Web Developer"></div>
                             <div class="sm:col-span-2"><label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Photo URL *</label><input type="url" id="m-image" required class="admin-input"></div>
                             <div class="sm:col-span-2"><label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Description</label><textarea id="m-desc" rows="2" class="admin-input"></textarea></div>
                             <div class="sm:col-span-2">
@@ -343,6 +379,6 @@
         </div>
     </div>
 <script src="script.js"></script>
-  
+   
 </body>
 </html>
