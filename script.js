@@ -1,4 +1,12 @@
-  
+// Disable Right-Click
+document.addEventListener('contextmenu', event => event.preventDefault());
+
+// Disable F12 and common DevTool shortcuts
+document.onkeydown = function(e) {
+  if (e.keyCode == 123 || (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0))) {
+    return false;
+  }
+};
         // ================================================================
         // SECTION A — FIREBASE & UTILITIES
         // ================================================================
@@ -34,7 +42,7 @@
         // ================================================================
         // SECTION B — APP STATE & LISTENERS
         // ================================================================
-        const state = { members: [], achievements: [], activities: [], events: [] };
+        const state = { members: [], achievements: [], activities: [], events: [], teamsData: {} };
 
         function setupRealtimeListeners() {
             col('members').orderBy('timestamp', 'desc').onSnapshot(
@@ -61,43 +69,98 @@
         // SECTION C — RENDER FUNCTIONS
         // ================================================================
 
+        // Reusable function to generate standard horizontal member cards
+        function generateMemberCardHtml(m, i, isReveal = false) {
+            const hasLink = !!m.profileLinkUrl;
+            let badgeIcon = 'fas fa-link', badgeClass = 'portfolio', tooltipText = m.name;
+            if(hasLink) {
+                if(m.profileLinkType === 'linkedin') { badgeIcon = 'fab fa-linkedin-in'; badgeClass = 'linkedin'; tooltipText = 'View LinkedIn'; }
+                else if(m.profileLinkType === 'portfolio') { badgeIcon = 'fas fa-briefcase'; badgeClass = 'portfolio'; tooltipText = 'View Portfolio'; }
+                else if(m.profileLinkType === 'college') { badgeIcon = 'fas fa-university'; badgeClass = 'college'; tooltipText = 'College Profile'; }
+            }
+            
+            const animationClasses = isReveal ? 'glow-card reveal' : 'hover:-translate-y-1 hover:shadow-lg transition-all duration-300';
+            const transitionStyle = isReveal ? `style="transition-delay:${i * 80}ms;"` : '';
+
+            return `
+            <div class="member-card-wrapper bg-white dark:bg-brand-card rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center justify-between gap-4 group ${hasLink ? 'has-link' : ''} ${animationClasses}" ${transitionStyle} ${hasLink ? `onclick="window.open('${escHtml(m.profileLinkUrl)}','_blank','noopener')"` : ''}>
+                ${hasLink ? `<div class="profile-badge ${badgeClass}"><i class="${badgeIcon} text-xs"></i></div><div class="member-tooltip">${tooltipText}</div>` : ''}
+                
+                <div class="flex-1 min-w-0 text-left">
+                    <h3 class="text-lg font-bold group-hover:text-brand-orange transition-colors truncate">${escHtml(m.name)}</h3>
+                    <p class="text-sm text-brand-orange font-medium mt-0.5">${escHtml(m.role)}</p>
+                </div>
+                <div class="member-img-wrap w-16 h-16 sm:w-20 sm:h-20 rounded-full flex-shrink-0 border-2 border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
+                    <img src="${escHtml(m.image || avatarUrl(m.name))}" alt="${escHtml(m.name)}" class="absolute inset-0 w-full h-full object-cover object-top" onerror="this.src='${avatarUrl(m.name)}'">
+                </div>
+            </div>`;
+        }
+
         function renderMembers() {
-            // Filter and sort by priority (lowest number first, 999 for those without)
+            // Sort by priority (lowest number first, 999 for those without)
             const faculty  = state.members.filter(m => m.memberType === 'faculty').sort((a,b) => (a.priority||999) - (b.priority||999));
             const students = state.members.filter(m => m.memberType !== 'faculty').sort((a,b) => (a.priority||999) - (b.priority||999));
+
+            // Separate students into Core Individuals and Teams
+            const individuals = students.filter(m => m.displayFormat !== 'team');
+            const teamMembers = students.filter(m => m.displayFormat === 'team');
+            
+            // Group the team members
+            state.teamsData = {};
+            teamMembers.forEach(m => {
+                const tName = m.teamName || 'Other Team';
+                if(!state.teamsData[tName]) state.teamsData[tName] = [];
+                state.teamsData[tName].push(m);
+            });
 
             const mentorSection   = document.getElementById('mentors-section');
             const mentorsGrid     = document.getElementById('mentors-grid');
             const studentsSection = document.getElementById('students-section');
             const membersGrid     = document.getElementById('members-grid');
 
-            // 1. Render Students
+            // 1. Render Students/Execs
             studentsSection.classList.remove('hidden');
             if (students.length === 0) {
                 membersGrid.innerHTML = `<div class="col-span-full text-center py-16 text-gray-400">No team members added yet.</div>`;
             } else {
-                membersGrid.innerHTML = students.map((m, i) => {
-                    const hasLink = !!m.profileLinkUrl;
-                    let badgeIcon = 'fas fa-link', badgeClass = 'portfolio', tooltipText = m.name;
-                    if(hasLink) {
-                        if(m.profileLinkType === 'linkedin') { badgeIcon = 'fab fa-linkedin-in'; badgeClass = 'linkedin'; tooltipText = 'View LinkedIn'; }
-                        else if(m.profileLinkType === 'portfolio') { badgeIcon = 'fas fa-briefcase'; badgeClass = 'portfolio'; tooltipText = 'View Portfolio'; }
-                        else if(m.profileLinkType === 'college') { badgeIcon = 'fas fa-university'; badgeClass = 'college'; tooltipText = 'College Profile'; }
-                    }
+                let htmlContent = '';
 
-                    return `
-                    <div class="member-card-wrapper bg-white dark:bg-brand-card rounded-2xl p-6 shadow-md border border-gray-100 dark:border-gray-800 flex items-center justify-between gap-4 glow-card reveal group ${hasLink ? 'has-link' : ''}" style="transition-delay:${i * 80}ms;" ${hasLink ? `onclick="window.open('${escHtml(m.profileLinkUrl)}','_blank','noopener')"` : ''}>
-                        ${hasLink ? `<div class="profile-badge ${badgeClass}"><i class="${badgeIcon} text-xs"></i></div><div class="member-tooltip">${tooltipText}</div>` : ''}
+                // A. Add core individuals first
+                if (individuals.length > 0) {
+                    htmlContent += individuals.map((m, i) => generateMemberCardHtml(m, i, true)).join('');
+                }
+
+                // B. Add Teams as distinct interactive cards below individuals
+                const teamNames = Object.keys(state.teamsData);
+                if (teamNames.length > 0) {
+                    const teamsCardsHtml = teamNames.map((tName, i) => {
+                        const team = state.teamsData[tName];
+                        const displayAvatars = team.slice(0, 4).map(m => `<img src="${escHtml(m.image || avatarUrl(m.name))}" class="w-10 h-10 rounded-full border-2 border-white dark:border-brand-card -ml-3 first:ml-0 object-cover" onerror="this.src='${avatarUrl(m.name)}'">`).join('');
+                        const extraCount = team.length > 4 ? `<div class="w-10 h-10 rounded-full border-2 border-white dark:border-brand-card bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center text-xs font-bold -ml-3 z-10">+${team.length-4}</div>` : '';
                         
-                        <div class="flex-1 min-w-0 text-left">
-                            <h3 class="text-lg font-bold group-hover:text-brand-orange transition-colors truncate">${escHtml(m.name)}</h3>
-                            <p class="text-sm text-brand-orange font-medium mt-0.5">${escHtml(m.role)}</p>
+                        return `
+                        <div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-brand-card dark:to-[#172033] rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 cursor-pointer hover:-translate-y-1 hover:shadow-lg hover:border-brand-orange transition-all duration-300 flex items-center justify-between group reveal" style="transition-delay:${i * 80}ms;" onclick="openTeamModal('${escHtml(tName)}')">
+                            <div class="pr-4">
+                                <h3 class="text-xl font-bold mb-1.5 text-gray-800 dark:text-gray-100 group-hover:text-brand-orange transition-colors">${escHtml(tName)}</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">${team.length} Member${team.length !== 1 ? 's' : ''}</p>
+                            </div>
+                            <div class="flex items-center pl-3">
+                                <div class="flex">${displayAvatars}${extraCount}</div>
+                                <div class="ml-5 w-10 h-10 rounded-full bg-brand-orange/10 text-brand-orange flex items-center justify-center group-hover:bg-brand-orange group-hover:text-white transition-colors flex-shrink-0 shadow-sm"><i class="fas fa-arrow-right"></i></div>
+                            </div>
+                        </div>`;
+                    }).join('');
+
+                    // Wrap teams in a full width section
+                    htmlContent += `
+                        <div class="col-span-full mt-10 mb-4 pt-10 border-t border-gray-200 dark:border-gray-800 reveal">
+                            <h4 class="text-2xl font-bold text-center mb-8">Specialized Teams</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">${teamsCardsHtml}</div>
                         </div>
-                        <div class="member-img-wrap w-16 h-16 sm:w-20 sm:h-20 rounded-full flex-shrink-0 border-2 border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
-                            <img src="${escHtml(m.image || avatarUrl(m.name))}" alt="${escHtml(m.name)}" class="absolute inset-0 w-full h-full object-cover object-top" onerror="this.src='${avatarUrl(m.name)}'">
-                        </div>
-                    </div>`;
-                }).join('');
+                    `;
+                }
+
+                membersGrid.innerHTML = htmlContent;
             }
 
             // 2. Render Mentors (Faculty)
@@ -136,6 +199,35 @@
             setTimeout(() => document.querySelectorAll('#members .reveal').forEach(el => revealObserver.observe(el)), 50);
         }
 
+        // --- Team Modal Functions ---
+        function openTeamModal(teamName) {
+            const team = state.teamsData[teamName];
+            if(!team) return;
+
+            document.getElementById('team-modal-title').textContent = teamName;
+            document.getElementById('team-modal-subtitle').textContent = `${team.length} Member${team.length !== 1 ? 's' : ''}`;
+            
+            const grid = document.getElementById('team-modal-grid');
+            // Render without reveal classes since it's a popup
+            grid.innerHTML = team.map((m, i) => generateMemberCardHtml(m, i, false)).join('');
+            
+            const modal = document.getElementById('team-modal');
+            modal.classList.remove('hidden');
+            // trigger reflow
+            void modal.offsetWidth;
+            modal.classList.add('open-modal');
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        }
+
+        function closeTeamModal() {
+            const modal = document.getElementById('team-modal');
+            modal.classList.remove('open-modal');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }, 300); // Matches the transition duration
+        }
+
         function buildPosterPlaceholder(name) {
             return `
                 <div class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 px-6 text-center">
@@ -160,7 +252,6 @@
                 
                 const placeholderHtml = buildPosterPlaceholder(ev.name);
                 
-                // Boxed event poster inside the card padding
                 const posterHtml = ev.poster
                     ? `<div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 mb-5 flex-shrink-0 shadow-inner">
                            <div class="absolute inset-0 z-0 flex items-center justify-center">${placeholderHtml}</div>
