@@ -1,11 +1,20 @@
- 
+// Disable Right-Click
+document.addEventListener('contextmenu', event => event.preventDefault());
+
+// Disable F12 and common DevTool shortcuts
+document.onkeydown = function(e) {
+  if (e.keyCode == 123 || (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0))) {
+    return false;
+  }
+}; 
         const firebaseConfig = { apiKey: "AIzaSyDQVX_gTv-zp-tRAJfhmOAo8utuOAlxSjU", authDomain: "fisat-echo.firebaseapp.com", projectId: "fisat-echo", storageBucket: "fisat-echo.firebasestorage.app", messagingSenderId: "671697672068", appId: "1:671697672068:web:e22a7092e85d47cb8befd1" };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const auth = firebase.auth();
         function col(name) { return db.collection(name); }
 
         function escHtml(str) {
-             if (!str) return '';
+            if (!str) return '';
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
         function formatDate(isoDate) {
@@ -15,47 +24,96 @@
             return `${parseInt(day, 10)} ${months[parseInt(month, 10) - 1]} ${year}`;
         }
 
-        const DEFAULT_USERNAME = 'echoadmin';
-        const DEFAULT_PASSWORD = 'echoadmin';
+        
         let isAuthenticated = false;
         let unsubscribeFns = [];
-
-        async function attemptLogin() {
-            const u = document.getElementById('login-username').value.trim();
+async function attemptLogin() {
+            const email = document.getElementById('login-username').value.trim();
             const p = document.getElementById('login-password').value;
             const b = document.getElementById('login-btn');
-            if (!u || !p) { showLoginError('Missing credentials.'); return; }
+            if (!email || !p) { showLoginError('Missing credentials.'); return; }
             b.disabled = true; b.innerHTML = 'Verifying...';
             try {
-                let eu = DEFAULT_USERNAME, ep = DEFAULT_PASSWORD;
-                const cDoc = await col('admin_config').doc('credentials').get();
-                if(cDoc.exists) { eu = cDoc.data().username; ep = cDoc.data().password; }
-                if(u === eu && p === ep) {
-                    isAuthenticated = true; sessionStorage.setItem('echo_admin_auth', '1');
-                    document.getElementById('login-screen').classList.add('hidden');
-                    document.getElementById('admin-dashboard').classList.remove('hidden');
-                    setupListeners(); showToast('Welcome back');
-                } else { showLoginError('Incorrect credentials.'); document.getElementById('login-password').value = ''; }
-            } catch(e) { showLoginError('Error logging in.'); }
+                await auth.signInWithEmailAndPassword(email, p);
+                isAuthenticated = true; sessionStorage.setItem('echo_admin_auth', '1');
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('admin-dashboard').classList.remove('hidden');
+                setupListeners(); showToast('Welcome back');
+            } catch(e) { 
+                showLoginError('Incorrect email or password.'); 
+                document.getElementById('login-password').value = ''; 
+            }
             b.disabled = false; b.innerHTML = 'Sign In';
         }
         function showLoginError(msg) { document.getElementById('login-error-text').textContent = msg; document.getElementById('login-error').classList.remove('hidden'); }
-        function logout() { isAuthenticated=false; sessionStorage.removeItem('echo_admin_auth'); unsubscribeFns.forEach(f=>f()); unsubscribeFns=[]; document.getElementById('admin-dashboard').classList.add('hidden'); document.getElementById('login-screen').classList.remove('hidden'); showToast('Signed out'); }
+        function logout() { auth.signOut(); isAuthenticated=false; sessionStorage.removeItem('echo_admin_auth'); unsubscribeFns.forEach(f=>f()); unsubscribeFns=[]; document.getElementById('admin-dashboard').classList.add('hidden'); document.getElementById('login-screen').classList.remove('hidden'); showToast('Signed out'); }
         function togglePasswordVisibility() { const pw = document.getElementById('login-password'), ico = document.getElementById('pw-eye-icon'); if(pw.type==='password'){ pw.type='text'; ico.className='fas fa-eye-slash text-sm'; } else { pw.type='password'; ico.className='fas fa-eye text-sm'; } }
         
         if(sessionStorage.getItem('echo_admin_auth') === '1') { isAuthenticated=true; document.getElementById('login-screen').classList.add('hidden'); document.getElementById('admin-dashboard').classList.remove('hidden'); setupListeners(); }
 
+     
+
         const PANELS = ['members', 'achievements', 'activities', 'events', 'messages'];
         function showPanel(name) { PANELS.forEach(p=>{ document.getElementById(`panel-${p}`).classList.add('hidden'); document.getElementById(`tab-${p}`)?.classList.remove('active'); }); document.getElementById(`panel-${name}`).classList.remove('hidden'); document.getElementById(`tab-${name}`)?.classList.add('active'); if(name==='messages') markAllRead(); }
-        function setMemberType(type) { document.getElementById('m-type').value = type; document.getElementById('type-btn-student').classList.toggle('selected', type==='student'); document.getElementById('type-btn-faculty').classList.toggle('selected', type==='faculty'); }
+
+        // Member Type & Display Formats Logic
+        function setMemberType(type) { 
+            document.getElementById('m-type').value = type; 
+            document.getElementById('type-btn-student').classList.toggle('selected', type==='student'); 
+            document.getElementById('type-btn-faculty').classList.toggle('selected', type==='faculty'); 
+            
+            const displayFormatWrap = document.getElementById('wrap-display-format');
+            const teamNameWrap = document.getElementById('wrap-team-name');
+
+            if(type === 'student') {
+                displayFormatWrap.classList.remove('hidden');
+                toggleTeamInput(); // Check existing select value
+            } else {
+                displayFormatWrap.classList.add('hidden');
+                teamNameWrap.classList.add('hidden');
+            }
+        }
+        
+        function toggleTeamInput() {
+            const isTeam = document.getElementById('m-display').value === 'team';
+            document.getElementById('wrap-team-name').classList.toggle('hidden', !isTeam);
+        }
+
+        function toggleEditTeamInput() {
+            const type = document.getElementById('edit-m-type').value;
+            const displayFormatWrap = document.getElementById('wrap-edit-display-format');
+            const teamNameWrap = document.getElementById('wrap-edit-team-name');
+            
+            if(type === 'student') {
+                displayFormatWrap.classList.remove('hidden');
+                const isTeam = document.getElementById('edit-m-display').value === 'team';
+                teamNameWrap.classList.toggle('hidden', !isTeam);
+            } else {
+                displayFormatWrap.classList.add('hidden');
+                teamNameWrap.classList.add('hidden');
+            }
+        }
+
+        function populateTeamDatalist(members) {
+            const datalist = document.getElementById('existing-teams');
+            const teams = new Set();
+            members.forEach(m => {
+                if (m.memberType !== 'faculty' && m.displayFormat === 'team' && m.teamName) {
+                    teams.add(m.teamName.trim());
+                }
+            });
+            datalist.innerHTML = Array.from(teams).map(t => `<option value="${escHtml(t)}">`).join('');
+        }
 
         function setupListeners() {
             unsubscribeFns.forEach(f=>f()); unsubscribeFns=[];
             ['members','achievements','activities','events'].forEach(n => {
                 unsubscribeFns.push(col(n).orderBy('timestamp','desc').onSnapshot(s => {
                     let items = s.docs.map(d=>({id:d.id,...d.data()}));
-                    // Sort members by priority ascending
-                    if (n === 'members') items.sort((a,b) => (a.priority||999) - (b.priority||999));
+                    if (n === 'members') {
+                        items.sort((a,b) => (a.priority||999) - (b.priority||999));
+                        populateTeamDatalist(items);
+                    }
                     renderAdminList(n, items);
                 }));
             });
@@ -81,8 +139,13 @@
                 el.innerHTML = items.map(i => {
                     let pt = escHtml(i.name || '');
                     let st = escHtml(i.role || '');
-                    if(i.memberType==='faculty') pt += ` <span class="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full ml-1">Faculty</span>`;
-                    return `<div class="list-row"><div class="flex flex-col"><span class="font-semibold">${pt}</span><span class="text-xs text-gray-500">${st} (Priority: ${i.priority||999})</span></div>
+                    
+                    let badgeHtml = '';
+                    if(i.memberType === 'faculty') badgeHtml = `<span class="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full ml-1">Faculty</span>`;
+                    else if (i.displayFormat === 'team') badgeHtml = `<span class="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full ml-1"><i class="fas fa-users mr-1"></i>${escHtml(i.teamName || 'Team')}</span>`;
+                    else badgeHtml = `<span class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full ml-1">Individual</span>`;
+
+                    return `<div class="list-row"><div class="flex flex-col"><span class="font-semibold">${pt} ${badgeHtml}</span><span class="text-xs text-gray-500">${st} (Priority: ${i.priority||999})</span></div>
                     <div class="flex gap-2">
                         <button onclick="openEditMemberModal('${i.id}')" class="text-brand-orange px-2 hover:underline text-sm"><i class="fas fa-edit"></i></button>
                         <button onclick="promptDelete('${name}','${i.id}')" class="text-red-500 px-2 hover:underline text-sm"><i class="fas fa-trash"></i></button>
@@ -116,15 +179,45 @@
             const btn = e.target.querySelector('button[type="submit"]'), oTxt = btn.innerHTML;
             btn.innerHTML='Saving...'; btn.disabled=true;
             let d = { timestamp: firebase.firestore.FieldValue.serverTimestamp() };
+            
             if(name==='members'){ 
-                d.name=document.getElementById('m-name').value; d.role=document.getElementById('m-role').value; d.image=document.getElementById('m-image').value; d.memberType=document.getElementById('m-type').value; d.description=document.getElementById('m-desc').value; 
-                d.priority=parseInt(document.getElementById('m-priority').value) || 999;
-                d.profileLinkUrl=document.getElementById('m-link-url').value; d.profileLinkType=d.profileLinkUrl?document.getElementById('m-link-type').value:'';
+                d.memberType = document.getElementById('m-type').value;
+                d.name = document.getElementById('m-name').value; 
+                d.role = document.getElementById('m-role').value; 
+                d.image = document.getElementById('m-image').value; 
+                d.description = document.getElementById('m-desc').value; 
+                d.priority = parseInt(document.getElementById('m-priority').value) || 999;
+                d.profileLinkUrl = document.getElementById('m-link-url').value; 
+                d.profileLinkType = d.profileLinkUrl ? document.getElementById('m-link-type').value : '';
+                
+                if (d.memberType === 'student') {
+                    d.displayFormat = document.getElementById('m-display').value;
+                    if (d.displayFormat === 'team') {
+                        d.teamName = document.getElementById('m-team-name').value;
+                        if(!d.teamName) { showToast('Team Name is required', 'error'); btn.innerHTML=oTxt; btn.disabled=false; return; }
+                    } else {
+                        d.teamName = ''; // clear if individual
+                    }
+                } else {
+                    d.displayFormat = 'individual';
+                    d.teamName = '';
+                }
             }
             else if(name==='achievements'){ d.title=document.getElementById('a-title').value; d.names=document.getElementById('a-names').value; d.description=document.getElementById('a-desc').value; d.date=document.getElementById('a-date').value; d.link=document.getElementById('a-link').value; }
             else if(name==='activities'){ d.title=document.getElementById('act-title').value; d.date=document.getElementById('act-date').value; d.link=document.getElementById('act-link').value; }
             else if(name==='events'){ d.name=document.getElementById('ev-name').value; d.date=document.getElementById('ev-date').value; d.status=document.getElementById('ev-status').value; d.poster=document.getElementById('ev-poster').value; d.btnLabel=document.getElementById('ev-btn-label').value; d.btnUrl=document.getElementById('ev-btn-url').value; }
-            try { await col(name).add(d); e.target.reset(); if(name==='members') { setMemberType('student'); document.getElementById('m-priority').value="10"; } showToast('Added!'); } catch(err) { showToast('Error','error'); }
+            
+            try { 
+                await col(name).add(d); 
+                e.target.reset(); 
+                if(name==='members') { 
+                    setMemberType('student'); 
+                    document.getElementById('m-priority').value="10"; 
+                    document.getElementById('m-display').value="individual";
+                    toggleTeamInput();
+                } 
+                showToast('Added!'); 
+            } catch(err) { showToast('Error','error'); }
             btn.innerHTML=oTxt; btn.disabled=false;
         }
 
@@ -145,6 +238,11 @@
             if(!d)return; 
             document.getElementById('edit-m-type').value=d.memberType||'student'; 
             document.getElementById('edit-m-priority').value=d.priority||999;
+            
+            document.getElementById('edit-m-display').value = d.displayFormat || 'individual';
+            document.getElementById('edit-m-team-name').value = d.teamName || '';
+            toggleEditTeamInput();
+
             document.getElementById('edit-m-name').value=d.name||''; 
             document.getElementById('edit-m-role').value=d.role||''; 
             document.getElementById('edit-m-image').value=d.image||''; 
@@ -157,9 +255,19 @@
         async function saveEditedMember() { 
             if(!editMemberId)return; 
             try{ 
+                const memberType = document.getElementById('edit-m-type').value;
+                const displayFormat = memberType === 'student' ? document.getElementById('edit-m-display').value : 'individual';
+                const teamName = displayFormat === 'team' ? document.getElementById('edit-m-team-name').value : '';
+
+                if (displayFormat === 'team' && !teamName) {
+                    showToast('Team Name is required', 'error'); return;
+                }
+
                 await col('members').doc(editMemberId).update({
-                    memberType: document.getElementById('edit-m-type').value,
+                    memberType: memberType,
                     priority: parseInt(document.getElementById('edit-m-priority').value) || 999,
+                    displayFormat: displayFormat,
+                    teamName: teamName,
                     name: document.getElementById('edit-m-name').value,
                     role: document.getElementById('edit-m-role').value,
                     image: document.getElementById('edit-m-image').value,
