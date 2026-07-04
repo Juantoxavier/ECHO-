@@ -172,6 +172,12 @@
 
         .activity-row-link { cursor: pointer; }
         .activity-row-nolink { cursor: default; }
+
+        /* Modal Animations */
+        #team-modal-content { transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        #team-modal.open-modal #team-modal-content { transform: scale(1); opacity: 1; }
+        #team-modal-backdrop { transition: opacity 0.3s ease; opacity: 0; }
+        #team-modal.open-modal #team-modal-backdrop { opacity: 1; }
     </style>
 </head>
 <body class="bg-white dark:bg-brand-dark text-gray-900 dark:text-gray-100 font-sans">
@@ -184,7 +190,7 @@
                      alt="ECHO Logo" class="h-24 w-auto object-contain drop-shadow-2xl">
             </div>
             <p class="text-white text-2xl font-black tracking-[0.4em]">ECHO</p>
-            <p class="text-gray-400 text-xs tracking-widest mt-1">FISAT ECE ASSOCIATION</p>
+            <p class="text-gray-400 text-xs tracking-widest mt-1">FISAT ECE </p>
         </div>
     </div>
 
@@ -192,6 +198,27 @@
     <div id="toast" class="fixed bottom-5 right-5 z-[9998] flex items-center gap-3 px-5 py-4 bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl border border-gray-700 translate-y-24 opacity-0">
         <i id="toast-icon" class="fas fa-check-circle text-brand-orange text-xl"></i>
         <span id="toast-message" class="font-semibold text-sm tracking-wide">Done</span>
+    </div>
+
+    <!-- Team Members Modal -->
+    <div id="team-modal" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6">
+        <div id="team-modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-pointer" onclick="closeTeamModal()"></div>
+        <div id="team-modal-content" class="relative bg-white dark:bg-brand-card w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col transform scale-95 opacity-0">
+            <div class="p-5 sm:p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-brand-dark/50 rounded-t-2xl">
+                <div>
+                    <h3 id="team-modal-title" class="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-gray-100">Team Name</h3>
+                    <p class="text-sm text-brand-orange font-medium mt-1" id="team-modal-subtitle">Team Members</p>
+                </div>
+                <button onclick="closeTeamModal()" class="w-10 h-10 rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 flex items-center justify-center transition-colors shadow-sm text-gray-600 dark:text-gray-300 flex-shrink-0">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-5 sm:p-6 overflow-y-auto flex-1 scroll-list bg-gray-50 dark:bg-[#0f1423] rounded-b-2xl">
+                <div id="team-modal-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <!-- Members will be injected here -->
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Navigation -->
@@ -204,7 +231,7 @@
                     <img src="https://lh3.googleusercontent.com/d/1rhsqMzNgzvkWdiGReadhYmFgovshvsXy" alt="FISAT Logo" class="h-11 w-auto object-contain transition-transform duration-300 group-hover:scale-105">
                     <div class="hidden lg:flex flex-col justify-center leading-tight border-l-2 border-gray-300 dark:border-gray-700 pl-4 ml-1">
                         <div class="font-bold text-[11px] md:text-xs tracking-widest text-gray-900 dark:text-gray-100 uppercase">Department of Electronics</div>
-                        <div class="font-bold text-[9px] md:text-[10px] text-gray-700 dark:text-gray-300 tracking-[0.15em] uppercase mt-0.5">And Communication Engineering</div>
+                        <div class="font-bold text-[11px] md:text-xs tracking-widest text-gray-900 dark:text-gray-100 uppercase">And Communication Engineering</div>
                     </div>
                 </a>
                 <div class="hidden md:flex items-center gap-5 xl:gap-6">
@@ -214,6 +241,8 @@
                     <a href="#achievements" class="nav-link text-sm font-medium hover:text-brand-orange transition-colors">Achievements</a>
                     <a href="#activities" class="nav-link text-sm font-medium hover:text-brand-orange transition-colors">Activities</a>
                     <a href="#about" class="nav-link text-sm font-medium hover:text-brand-orange transition-colors">About</a>
+                    <a href="https://fisat.ac.in/" class="nav-link text-sm font-medium hover:text-brand-orange transition-colors">FISAT</a>
+
                     <button id="theme-toggle" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Toggle dark/light mode">
                         <i class="fas fa-moon dark:hidden text-gray-600"></i>
                         <i class="fas fa-sun hidden dark:block text-yellow-400"></i>
@@ -233,7 +262,7 @@
         <div class="blob-2 absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/15 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
         <div class="max-w-4xl mx-auto z-10 page-enter" style="animation-delay: 2.6s;">
             <p class="inline-block px-4 py-1 mb-6 text-xs font-semibold tracking-[0.2em] uppercase text-brand-orange border border-brand-orange/40 rounded-full bg-brand-orange/10">
-                FISAT ECE Department Association
+                FISAT ECE Department 
             </p>
             <h1 class="text-5xl sm:text-6xl md:text-7xl font-black mb-6 leading-tight">
                 Where Ideas <span class="text-gradient">ECHO</span>,<br>Future Ignites
@@ -395,11 +424,12 @@
             <span class="font-bold text-gray-700 dark:text-gray-300">FISAT ECHO</span>
         </div>
         <p class="mb-3">&copy; 2025–2026 ECHO | FISAT. All rights reserved.</p>
-     <!-- <a href="admin.html" class="inline-block text-xs opacity-30 hover:opacity-80 hover:text-brand-orange transition-all duration-200 underline underline-offset-2">Admin Portal</a>-->
+        <p>Email :<a href="mailto:echo@fisat.ac.in">echo@fisat.ac.in</a> </p>
+
+      <!--  <a href="admin.html" class="inline-block text-xs opacity-30 hover:opacity-80 hover:text-brand-orange transition-all duration-200 underline underline-offset-2">Admin Portal</a>-->
     </footer>
 
     <!-- Scripts -->
-<script src="script.js"></script>
-  
+    <script src="script.js"></script>
 </body>
 </html>
