@@ -201,6 +201,28 @@
         </div>
     </div>
 
+    <!-- Edit Achievement Modal -->
+    <div id="edit-achievement-modal" class="hidden fixed inset-0 bg-black/60 z-[150] flex items-center justify-center px-4 modal-backdrop">
+        <div class="bg-white dark:bg-brand-card p-6 rounded-2xl shadow-2xl max-w-lg w-full border border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="text-xl font-bold">Edit Achievement</h3>
+                <button onclick="closeEditAchievementModal()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex flex-col gap-4">
+                <div><label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Title <span class="text-red-500">*</span></label><input type="text" id="edit-a-title" class="admin-input"></div>
+                <div><label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Member Names <span class="text-red-500">*</span></label><input type="text" id="edit-a-names" class="admin-input"></div>
+                <div><label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Date</label><input type="date" id="edit-a-date" class="admin-input"></div>
+                <div><label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Description <span class="text-red-500">*</span></label><textarea id="edit-a-desc" rows="3" class="admin-input"></textarea></div>
+                <div><label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Image URL</label><input type="url" id="edit-a-image" class="admin-input" placeholder="https://..."></div>
+                <div><label class="block text-sm font-semibold mb-1.5 text-gray-600 dark:text-gray-400">Link</label><input type="url" id="edit-a-link" class="admin-input"></div>
+                <div class="flex gap-3 pt-2">
+                    <button onclick="closeEditAchievementModal()" class="flex-1 py-2.5 rounded-xl font-semibold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">Cancel</button>
+                    <button onclick="saveEditedAchievement()" class="flex-1 py-2.5 rounded-xl font-bold bg-brand-orange text-white flex items-center justify-center gap-2"><i class="fas fa-save"></i> Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Login Screen -->
     <div id="login-screen" class="flex items-center justify-center min-h-screen px-4 py-10">
         <div id="login-card" class="w-full max-w-md bg-white dark:bg-brand-card rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 p-8">
@@ -321,6 +343,7 @@
                             <div><label class="block text-sm font-semibold mb-1.5">Member Names *</label><input type="text" id="a-names" required class="admin-input"></div>
                             <div><label class="block text-sm font-semibold mb-1.5">Date</label><input type="date" id="a-date" class="admin-input"></div>
                             <div><label class="block text-sm font-semibold mb-1.5">Description *</label><textarea id="a-desc" required rows="3" class="admin-input"></textarea></div>
+                            <div><label class="block text-sm font-semibold mb-1.5">Image URL</label><input type="url" id="a-image" class="admin-input" placeholder="https://..."><p class="text-[10px] text-gray-400 mt-1">Optional. Link to an image (certificate, photo, patent scan) to show on the main site.</p></div>
                             <div><label class="block text-sm font-semibold mb-1.5">Link</label><input type="url" id="a-link" class="admin-input"></div>
                             <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl shadow-lg">Add Achievement</button>
                         </form>
